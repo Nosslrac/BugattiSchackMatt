@@ -179,7 +179,7 @@ public class Draw extends JPanel implements ActionListener, MouseListener, Mouse
     }
 
     public void perft(){
-        board.perft(5);
+        board.perft(4);
     }
 
     public void setPromotion(int key){
@@ -216,8 +216,10 @@ public class Draw extends JPanel implements ActionListener, MouseListener, Mouse
     @Override
     public void mouseReleased(MouseEvent e) {
         if(held_piece > -1) {
-            if(board.placePiece(origin, (mX - 20) / sq_size + ((mY - 20) / sq_size) * 8))
+            if(board.placePiece(origin, (mX - 20) / sq_size + ((mY - 20) / sq_size) * 8)) {
                 playSound(board.getMoveSound());
+                board.engineMove();
+            }
         }
         held_piece = -1;
         legalMoves = null;

@@ -296,23 +296,21 @@ public class MoveGenerator {
 
 
     //Generate pseudo legal moves when not in check
-    public static List <Character> generateKnightMoves(long knightMask, long boardMask, long oppMask, long block){
+    public static List <Character> generateKnightMoves(long knightMask, long boardMask, long oppMask){
         List<Character> moves = new ArrayList<>();
         while(knightMask != 0){
             int pos = Long.numberOfTrailingZeros(knightMask);
-            moves.addAll(knightMove(boardMask, oppMask, pos, block));
+            moves.addAll(knightMove(boardMask, oppMask, pos));
             knightMask &= ~(1L << pos);
         }
         return moves;
     }
 
     //Generates legal moves when not in check
-    public static List<Character> knightMove(long boardMask, long oppMask, int pos, long block){
+    public static List<Character> knightMove(long boardMask, long oppMask, int pos){
         List <Character> moves = new ArrayList<>();
         long sameMask = boardMask & ~oppMask;
         long dest = Attacks.knightAttacks[pos] & ~sameMask;
-        if(block != 0) //Means we are in check
-            dest &= block;
         while(dest != 0){
             int to = Long.numberOfTrailingZeros(dest);
             char move = (char) (to | pos << 6);
