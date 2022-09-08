@@ -11,9 +11,6 @@ public class Board {
     private final String castling = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -";
     private final String enPassantTest = "8/3p4/8/K3P2r/8/8/7k/8 b -";
 
-    public long boardMask;
-    public long whiteMask;
-    public long blackMask;
     private long nodes;
     //private long whiteAttack;
     private char castlingRights;
@@ -26,9 +23,10 @@ public class Board {
 
     //{whiteAttack, blackAttack, checkerMask, blockerMask, pinnedMask}
     private static final int whiteAttack = 0, blackAttack = 1,
-             checkerMask = 2, blockerMask = 3, pinnedMask = 4;
+             checkerMask = 2, blockerMask = 3, pinnedMask = 4, boardMask = 0, whiteMask = 1, blackMask = 2;
 
     private long[] positionProps;
+    private long[] boardMaps;
     private final long[] bitMaps;
     private int moveSound;
 
@@ -42,6 +40,7 @@ public class Board {
 
     public Board(){
         bitMaps = new long[12];
+        boardMaps = new long[3];
         positionProps = new long[5];
         prevPositions = new Stack<>();
         prevMoves = new Stack<>();
@@ -50,10 +49,10 @@ public class Board {
         depth = 0; //Initial depth
         enPassantPawn = 0xFF; //Pawns can't be on square 255
         castlingRights = 0;
-        fenToArray(illegalEP);
-        whiteMask = bitMaps[0] | bitMaps[1] | bitMaps[2] | bitMaps[3] | bitMaps[4] | bitMaps[5];
-        blackMask = bitMaps[6] | bitMaps[7] | bitMaps[8] | bitMaps[9] | bitMaps[10] | bitMaps[11];
-        boardMask = whiteMask | blackMask;
+        fenToArray(castling);
+        boardMaps[whiteMask] = bitMaps[0] | bitMaps[1] | bitMaps[2] | bitMaps[3] | bitMaps[4] | bitMaps[5];
+        boardMaps[blackMask] = bitMaps[6] | bitMaps[7] | bitMaps[8] | bitMaps[9] | bitMaps[10] | bitMaps[11];
+        boardMaps[boardMask] = boardMaps[whiteMask] | boardMaps[blackMask];
         updateAttacks();
     }
 
@@ -197,12 +196,10 @@ public class Board {
         for(char move : moves){
             int to = Move.getTo(move);
             if (to == dest){
-                long time = System.nanoTime();
                 if(Move.getFlags(move) > 7)
                     makeMove((char) (move | promotion << 12));
                 else
                     makeMove(move);
-                System.out.println(System.nanoTime() - time);
                 return true;
             }
         }
@@ -234,8 +231,8 @@ public class Board {
             long sliders = bitMaps[3] | bitMaps[5];
             //If any of the slider occupy the fifth rank then we need to check for pin
             if((sliders & 0xFF00000000L) > 0) {
-                long slideAttack = Attacks.straightAttack(boardMask, sliders, true);
-                long kingAttack = Attacks.straightAttack(boardMask, bitMaps[6], true);
+                long slideAttack = Attacks.straightAttack(boardMaps[boardMask], sliders, true);
+                long kingAttack = Attacks.straightAttack(boardMaps[boardMask], bitMaps[6], true);
                 long pawnPos = 1L << pushedPawn;
                 //If either the king or sliders see the en passant pawn then a possible pin is there
                 if((slideAttack & pawnPos) != 0){
@@ -259,8 +256,8 @@ public class Board {
             long sliders = bitMaps[9] | bitMaps[11];
             //If any of the slider occupy the forth rank then we need to check for pin
             if((sliders & 0xFF000000L) > 0) {
-                long slideAttack = Attacks.straightAttack(boardMask, sliders, true);
-                long kingAttack = Attacks.straightAttack(boardMask, bitMaps[0], true);
+                long slideAttack = Attacks.straightAttack(boardMaps[boardMask], sliders, true);
+                long kingAttack = Attacks.straightAttack(boardMaps[boardMask], bitMaps[0], true);
                 long pawnPos = 1L << pushedPawn;
                 //If either the king or sliders see the en passant pawn then a possible pin is there
                 if((slideAttack & pawnPos) != 0){
@@ -287,33 +284,33 @@ public class Board {
             case 2 -> {
                 long set = 1L << 3;
                 long reset = ~(1L);
-                blackMask &= reset;
+                boardMaps[blackMask] &= reset;
                 bitMaps[9] &= reset;
-                blackMask |= set;
+                boardMaps[blackMask] |= set;
                 bitMaps[9] |= set;
             }
             case 6 -> {
                 long set = 1L << 5;
                 long reset = ~(1L << 7);
-                blackMask &= reset;
+                boardMaps[blackMask] &= reset;
                 bitMaps[9] &= reset;
-                blackMask |= set;
+                boardMaps[blackMask] |= set;
                 bitMaps[9] |= set;
             }
             case 58 -> {
                 long set = 1L << 59;
                 long reset = ~(1L << 56);
-                whiteMask &= reset;
+                boardMaps[whiteMask] &= reset;
                 bitMaps[3] &= reset;
-                whiteMask |= set;
+                boardMaps[whiteMask] |= set;
                 bitMaps[3] |= set;
             }
             case 62 -> {
                 long set = 1L << 61;
                 long reset = ~(1L << 63);
-                whiteMask &= reset;
+                boardMaps[whiteMask] &= reset;
                 bitMaps[3] &= reset;
-                whiteMask |= set;
+                boardMaps[whiteMask] |= set;
                 bitMaps[3] |= set;
             }
         }
@@ -324,33 +321,33 @@ public class Board {
             case 2 -> {
                 long reset = ~(1L << 3);
                 long set = 1L;
-                blackMask &= reset;
+                boardMaps[blackMask] &= reset;
                 bitMaps[9] &= reset;
-                blackMask |= set;
+                boardMaps[blackMask] |= set;
                 bitMaps[9] |= set;
             }
             case 6 -> {
                 long reset = ~(1L << 5);
                 long set = 1L << 7;
-                blackMask &= reset;
+                boardMaps[blackMask] &= reset;
                 bitMaps[9] &= reset;
-                blackMask |= set;
+                boardMaps[blackMask] |= set;
                 bitMaps[9] |= set;
             }
             case 58 -> {
                 long reset = ~(1L << 59);
                 long set = 1L << 56;
-                whiteMask &= reset;
+                boardMaps[whiteMask] &= reset;
                 bitMaps[3] &= reset;
-                whiteMask |= set;
+                boardMaps[whiteMask] |= set;
                 bitMaps[3] |= set;
             }
             case 62 -> {
                 long reset = ~(1L << 61);
                 long set = 1L << 63;
-                whiteMask &= reset;
+                boardMaps[whiteMask] &= reset;
                 bitMaps[3] &= reset;
-                whiteMask |= set;
+                boardMaps[whiteMask] |= set;
                 bitMaps[3] |= set;
             }
         }
@@ -367,7 +364,7 @@ public class Board {
     }
 
     private void makeMove(char move){
-        prevPositions.push(new Position(castlingRights, positionProps, enPassantPawn, numCheckers));
+        prevPositions.push(new Position(positionProps, boardMaps, enPassantPawn, numCheckers, castlingRights));
         prevMoves.push(move);
         int from = Move.getFrom(move);
         int to = Move.getTo(move);
@@ -375,79 +372,62 @@ public class Board {
         long toSq = 1L << to;
         int flags = Move.getFlags(move);
         int start = whiteToMove ? 0 : 6;
+        int opMask = whiteToMove ? 2 : 1;
+        int sameMask = whiteToMove ? 1 : 2;
+        int opStart = whiteToMove ? 6 : 0;
+
         int moverID = findMask(fromSq, start);
         bitMaps[moverID] &= ~fromSq; // Clear mover from square
-        if(whiteToMove){
-            //Capture
-            if((flags & 0x4) != 0){
-                if((flags & 0x9) == 0x1){//Ep capture
-                    long realPawn = ~(1L << (enPassantPawn >> 8));
-                    bitMaps[7] &= realPawn;
-                    blackMask &= realPawn;
-                }
-                else{//Regular capture
-                    int capID = findMask(toSq, 6);
-                    if(capID == 9)
+        boardMaps[sameMask] &= ~fromSq; //Clear from team
+
+        //Special moves and captures
+        switch (flags){
+            case 1 -> enPassant(to);
+            case 2, 3 -> castle(to);
+            case 4 -> {
+                //Regular capture
+                int capID = findMask(toSq, opStart);
+                if(capID % 6 == 3)
+                    rookMoveOrCap(to);
+                bitMaps[capID] &= ~toSq;
+                boardMaps[opMask] &= ~toSq;
+                captured.push(capID);
+            }
+            case 5 -> {
+                long realPawn = ~(1L << (enPassantPawn >> 8));
+                bitMaps[opStart + 1] &= realPawn; //Pawns are the first mask in array
+                boardMaps[opMask] &= realPawn;
+            }
+            case 8,9,10,11,12,13,14,15 -> {
+                if(flags > 11){ //Capture as well
+                    int capID = findMask(toSq, opStart);
+                    if(capID % 6 == 3)
                         rookMoveOrCap(to);
                     bitMaps[capID] &= ~toSq;
-                    blackMask &= ~toSq;
+                    boardMaps[opMask] &= ~toSq;
                     captured.push(capID);
                 }
-                moveSound = 2;
+                //Promotes to piece specified by the move
+                moverID = start + 2 + (flags & 0x3);
             }
-            whiteMask &= ~fromSq;
-            whiteMask |= toSq;
-        }
-        else{
-            //Capture
-            if((flags & 0x4) != 0){
-                if((flags & 0x9) == 1){//Ep capture
-                    long realPawn = ~(1L << (enPassantPawn >> 8));
-                    bitMaps[1] &= realPawn;
-                    whiteMask &= realPawn;
-                }
-                else{//Regular capture
-                    int capID = findMask(toSq, 0);
-                    if(capID == 3)
-                        rookMoveOrCap(to);
-                    bitMaps[capID] &= ~toSq;
-                    whiteMask &= ~toSq;
-                    captured.push(capID);
-                }
-                moveSound = 2;
-            }
-            blackMask &= ~fromSq;
-            blackMask |= toSq;
         }
 
-        //Pawn double push
-        if(flags == 1){
-            enPassant(to);
-        }
-        else{
-           enPassantPawn = 0xFF;
-        }
-        //Castling moves
+        if(flags != 1)
+            enPassantPawn = 0xFF;
+        //King moves change castling rights
         if(moverID % 6 == 0){
             if(moverID == 0)
                 castlingRights &= 0b1100;
             else
                 castlingRights &= 0b0011;
-            if(flags == 2 || flags == 3) {
-                castle(to);
-                moveSound = 3;
-            }
         }
         else if(moverID % 6 == 3){//Rook moves update castling rights
             rookMoveOrCap(from);
         }
-        else if((flags & 0x8) != 0){
-            //Some kind of promotion
-            moverID = start + 2 + (flags & 0x3); //Get piece id
-        }
         //Update bitmap
         bitMaps[moverID] |= toSq;
-        boardMask = whiteMask | blackMask;
+        boardMaps[sameMask] |= toSq;
+        boardMaps[boardMask] = boardMaps[whiteMask] | boardMaps[blackMask];
         whiteToMove = !whiteToMove;
         updateAttacks();
         depth++;
@@ -459,8 +439,10 @@ public class Board {
     }
 
     private void undoMove(char move){
+
         Position prev = prevPositions.pop();
         positionProps = prev.posProps;
+        boardMaps = prev.boardMasks;
         castlingRights = prev.castlingRights;
         enPassantPawn = prev.enPassantPawn;
         numCheckers = prev.numCheckers;
@@ -470,56 +452,32 @@ public class Board {
         int flags = Move.getFlags(move);
         long toSq = 1L << to;
         long fromSq = 1L << from;
-        int maskID;
 
-        if(whiteToMove){ //Black made previous move
-             maskID = findMask(toSq, 6);
-             bitMaps[maskID] &= ~toSq; //Clear mover from current square
-             if((flags & 0x4) != 0){//Capture
-                 if((flags & 0x9) == 0x1){//Ep capture
-                    int realPawn = enPassantPawn >> 8;
-                    bitMaps[1] |= 1L << realPawn;
-                    whiteMask |= 1L << realPawn;
-                 }
-                 else{
-                     int capID = captured.pop();
-                     bitMaps[capID] |= toSq;
-                     whiteMask |= toSq;
-                 }
-             }
-             if((flags & 0x8) != 0){
-                 maskID = 7;
-             }
-            blackMask |= fromSq;
-            blackMask &= ~toSq;
+        int opStart = whiteToMove ? 6 : 0;
+        int movingPiece = findMask(toSq, opStart);
+        //Remove from movingPiece
+        bitMaps[movingPiece] &= ~toSq;
+        int cap = 0;
+
+        //En passant, the captured piece will not be placed on the to square
+        if(flags == 5){
+           toSq = whiteToMove ? 1L << (to - 8) : 1L << (to + 8);
+           cap = whiteToMove ? 1 : 7;
         }
-        else{ //White made previous move
-            maskID = findMask(toSq, 0);
-            bitMaps[maskID] &= ~toSq; //Clear mover from current square
-            if((flags & 0x4) != 0){//Capture
-                if((flags & 0x9) == 0x1){//Ep capture
-                    int realPawn = enPassantPawn >> 8;
-                    bitMaps[7] |= 1L << realPawn;
-                    blackMask |= 1L << realPawn;
-                }
-                else{
-                    int capID = captured.pop();
-                    bitMaps[capID] |= toSq;
-                    blackMask |= toSq;
-                }
-            }
-            if((flags & 0x8) != 0){ //promotion
-                maskID = 1; //Change maskID so we will put a pawn instead of promoted piece
-            }
-            whiteMask |= fromSq;
-            whiteMask &= ~toSq;
+        else if((flags & 0x4) != 0){
+            cap = captured.pop();
         }
-        //Add mover to origin square
-        if(flags == 2 || flags == 3){
-            unCastle(to);
+        else if(flags == 3 || flags == 2){
+            unCastle(to); //Based on where the king is now
         }
-        bitMaps[maskID] |= fromSq;
-        boardMask = whiteMask | blackMask;
+        if(flags > 8){
+            movingPiece = opStart + 1; //Make the piece a pawn again
+        }
+        if(cap != 0){
+            bitMaps[cap] |= toSq;
+        }
+        //Update pieceMaps
+        bitMaps[movingPiece] |= fromSq;
         whiteToMove = !whiteToMove;
         depth--;
     }
@@ -530,7 +488,7 @@ public class Board {
         positionProps[blockerMask] = 0L;
         positionProps[checkerMask] = 0L;
         numCheckers = 0;
-        long boardMKing = boardMask & ~bitMaps[6]; //White attacks go through black king
+        long boardMKing = boardMaps[boardMask] & ~bitMaps[6]; //White attacks go through black king
         wA |= Attacks.kingAttack(Long.numberOfTrailingZeros(bitMaps[0]));
         wA |= Attacks.pawnAttack(bitMaps[1], true);
         wA |= Attacks.knightAttacks(bitMaps[2]);
@@ -538,7 +496,7 @@ public class Board {
         wA |= Attacks.bishopAttacks(boardMKing, bitMaps[4]);
         wA |= Attacks.rookAttacks(boardMKing, bitMaps[5]) | Attacks.bishopAttacks(boardMKing, bitMaps[5]);
 
-        boardMKing = boardMask & ~bitMaps[0]; //Black attacks go through white king
+        boardMKing = boardMaps[boardMask] & ~bitMaps[0]; //Black attacks go through white king
         bA |= Attacks.kingAttack(Long.numberOfTrailingZeros(bitMaps[6]));
         bA |= Attacks.pawnAttack(bitMaps[7], false);
         bA |= Attacks.knightAttacks(bitMaps[8]);
@@ -557,8 +515,11 @@ public class Board {
             findChecker(false);
         }
         //Slows down perft
-        if(isCheckMate())
+        /*
+        if(isCheckMate()) {
             moveSound = 4;
+            System.out.println("Checkmate");
+        }*/
 
     }
 
@@ -574,8 +535,8 @@ public class Board {
         //The intersection with potential checking squares with actual opponent pieces finds the checker
         long knightCheck   = Attacks.knightAttacks(king) & bitMaps[2 + plus];
         long pawnCheck     = Attacks.pawnAttack(king, !white) & bitMaps[1 + plus];
-        long diagonalCheck = Attacks.bishopAttacks(boardMask, king) & (bitMaps[4 + plus] | bitMaps[5 + plus]);
-        long straightCheck = Attacks.rookAttacks(boardMask, king) & (bitMaps[3 + plus] | bitMaps[5 + plus]);
+        long diagonalCheck = Attacks.bishopAttacks(boardMaps[boardMask], king) & (bitMaps[4 + plus] | bitMaps[5 + plus]);
+        long straightCheck = Attacks.rookAttacks(boardMaps[boardMask], king) & (bitMaps[3 + plus] | bitMaps[5 + plus]);
 
 
         if(knightCheck != 0) {positionProps[checkerMask] = knightCheck; numCheckers++;}
@@ -600,7 +561,7 @@ public class Board {
     }
 
 
-    //Probably faster pin detection, also only considers pins for moving side
+    //Probably faster pin detection, only considers pins for moving side
     private void findPinsAlt(){
         positionProps[pinnedMask] = 0L;
         int start = whiteToMove ? 0 : 6;
@@ -617,22 +578,22 @@ public class Board {
         diagonal &= kingMD; //Reuse variable for main diagonal pins
         straight &= kingFile; //Reuse variable for file pins
         //Possible pinning pieces, INVESTIGATE
-        long nSameMask = whiteToMove ? ~blackMask : ~whiteMask;
+        long nSameMask = whiteToMove ? ~boardMaps[blackMask] : ~boardMaps[whiteMask];
         if(diagonal != 0){
-            positionProps[pinnedMask] |= (Attacks.diagonalAttack(boardMask, diagonal, true) & nSameMask)
-                    & Attacks.diagonalAttack(boardMask, 1L << kingPos, true);
+            positionProps[pinnedMask] |= (Attacks.diagonalAttack(boardMaps[boardMask], diagonal, true) & nSameMask)
+                    & Attacks.diagonalAttack(boardMaps[boardMask], 1L << kingPos, true);
         }
         if(straight != 0){
-            positionProps[pinnedMask] |= (Attacks.straightAttack(boardMask, straight, false) & nSameMask)
-                    & Attacks.straightAttack(boardMask, 1L << kingPos, false);
+            positionProps[pinnedMask] |= (Attacks.straightAttack(boardMaps[boardMask], straight, false) & nSameMask)
+                    & Attacks.straightAttack(boardMaps[boardMask], 1L << kingPos, false);
         }
         if(AD != 0){
-            positionProps[pinnedMask] |= (Attacks.diagonalAttack(boardMask, AD, false) & nSameMask)
-                    & Attacks.diagonalAttack(boardMask, 1L << kingPos, false);
+            positionProps[pinnedMask] |= (Attacks.diagonalAttack(boardMaps[boardMask], AD, false) & nSameMask)
+                    & Attacks.diagonalAttack(boardMaps[boardMask], 1L << kingPos, false);
         }
         if(RANK != 0){
-            positionProps[pinnedMask] |= (Attacks.straightAttack(boardMask, RANK, true) & nSameMask)
-                    & Attacks.straightAttack(boardMask, 1L << kingPos, true);
+            positionProps[pinnedMask] |= (Attacks.straightAttack(boardMaps[boardMask], RANK, true) & nSameMask)
+                    & Attacks.straightAttack(boardMaps[boardMask], 1L << kingPos, true);
         }
     }
 
@@ -650,42 +611,42 @@ public class Board {
         //Start with diagonals for both sides
         //Starting with white's pinned pieces
         //If king sees a piece on its main diagonal that a bishop or queen also sees then that piece is pinned
-        long bMainDiagonal      = Attacks.diagonalAttack(boardMask, bitMaps[10] | bQ, true) & ~blackMask;
-        long wMainDiagonalKing  = Attacks.diagonalAttack(boardMask, wK, true);
+        long bMainDiagonal      = Attacks.diagonalAttack(boardMaps[boardMask], bitMaps[10] | bQ, true) & ~boardMaps[blackMask];
+        long wMainDiagonalKing  = Attacks.diagonalAttack(boardMaps[boardMask], wK, true);
         //If king sees a piece on its anti diagonal that a bishop or queen also sees then that piece is pinned
-        long bAntiDiagonal      = Attacks.diagonalAttack(boardMask, bitMaps[10] | bQ, false) & ~blackMask;
-        long wAntiDiagonalKing  = Attacks.diagonalAttack(boardMask, wK, false);
+        long bAntiDiagonal      = Attacks.diagonalAttack(boardMaps[boardMask], bitMaps[10] | bQ, false) & ~boardMaps[blackMask];
+        long wAntiDiagonalKing  = Attacks.diagonalAttack(boardMaps[boardMask], wK, false);
         tmpRes = (wMainDiagonalKing & bMainDiagonal) | (wAntiDiagonalKing & bAntiDiagonal);
 
         //Same method for black
         //If king sees a piece on its main diagonal that a bishop or queen also sees then that piece is pinned
-        long wMainDiagonal      = Attacks.diagonalAttack(boardMask, bitMaps[4] | wQ, true) & ~whiteMask;
-        long bMainDiagonalKing  = Attacks.diagonalAttack(boardMask, bK, true);
+        long wMainDiagonal      = Attacks.diagonalAttack(boardMaps[boardMask], bitMaps[4] | wQ, true) & ~boardMaps[whiteMask];
+        long bMainDiagonalKing  = Attacks.diagonalAttack(boardMaps[boardMask], bK, true);
         //If king sees a piece on its anti diagonal that a bishop or queen also sees then that piece is pinned
-        long wAntiDiagonal      = Attacks.diagonalAttack(boardMask, bitMaps[4] | wQ, false) & ~whiteMask;
-        long bAntiDiagonalKing  = Attacks.diagonalAttack(boardMask, bK, false);
+        long wAntiDiagonal      = Attacks.diagonalAttack(boardMaps[boardMask], bitMaps[4] | wQ, false) & ~boardMaps[whiteMask];
+        long bAntiDiagonalKing  = Attacks.diagonalAttack(boardMaps[boardMask], bK, false);
 
         tmpRes |=  (wMainDiagonal & bMainDiagonalKing) | (wAntiDiagonal & bAntiDiagonalKing);
         //Intersection with board mask will be all pinned pieces
-        positionProps[pinnedMask] = tmpRes & boardMask;
+        positionProps[pinnedMask] = tmpRes & boardMaps[boardMask];
 
         //Ranks and files for both sides
         //Starting white
-        long bRank      = Attacks.straightAttack(boardMask, bitMaps[9] | bQ, true) & ~blackMask;
-        long wRankKing  = Attacks.straightAttack(boardMask, wK, true);
+        long bRank      = Attacks.straightAttack(boardMaps[boardMask], bitMaps[9] | bQ, true) & ~boardMaps[blackMask];
+        long wRankKing  = Attacks.straightAttack(boardMaps[boardMask], wK, true);
 
-        long bFile      = Attacks.straightAttack(boardMask, bitMaps[9] | bQ, false) & ~blackMask;
-        long wFileKing  = Attacks.straightAttack(boardMask, wK, false);
+        long bFile      = Attacks.straightAttack(boardMaps[boardMask], bitMaps[9] | bQ, false) & ~boardMaps[blackMask];
+        long wFileKing  = Attacks.straightAttack(boardMaps[boardMask], wK, false);
         tmpRes = (bRank & wRankKing) | (bFile & wFileKing);
 
-        long wRank      = Attacks.straightAttack(boardMask, bitMaps[3] | wQ, true) & ~whiteMask;
-        long bRankKing  = Attacks.straightAttack(boardMask, bK, true);
+        long wRank      = Attacks.straightAttack(boardMaps[boardMask], bitMaps[3] | wQ, true) & ~boardMaps[whiteMask];
+        long bRankKing  = Attacks.straightAttack(boardMaps[boardMask], bK, true);
 
-        long wFile      = Attacks.straightAttack(boardMask, bitMaps[3] | wQ, false) & ~whiteMask;
-        long bFileKing  = Attacks.straightAttack(boardMask, bK, false);
+        long wFile      = Attacks.straightAttack(boardMaps[boardMask], bitMaps[3] | wQ, false) & ~boardMaps[whiteMask];
+        long bFileKing  = Attacks.straightAttack(boardMaps[boardMask], bK, false);
         tmpRes |= (wRank & bRankKing) | (wFile & bFileKing);
-        //Intersection with boardMask will be all pinned pieces
-        positionProps[pinnedMask] |= tmpRes & boardMask;
+        //Intersection with boardMaps[boardMask will be all pinned pieces
+        positionProps[pinnedMask] |= tmpRes & boardMaps[boardMask];
     }
 
 
@@ -743,27 +704,27 @@ public class Board {
     }
 
     private List<Character> getAllMovesInCheck(){
-        long oppMask = whiteToMove ? blackMask : whiteMask;
+        long oppMask = whiteToMove ? boardMaps[blackMask] : boardMaps[whiteMask];
         int start = whiteToMove ? 0 : 6;
         long attack = whiteToMove ? positionProps[blackAttack] : positionProps[whiteAttack];
 
-        List<Character> moves = new ArrayList<>(MoveGenerator.kingMoves(boardMask, attack,
+        List<Character> moves = new ArrayList<>(MoveGenerator.kingMoves(boardMaps[boardMask], attack,
                 oppMask, (char)0, Long.numberOfTrailingZeros(bitMaps[start])));
         if(numCheckers > 1) //Return early since only king moves are available
             return moves;
-        MoveGenerator.generatePawnMoveInCheck(moves, boardMask,
+        MoveGenerator.generatePawnMoveInCheck(moves, boardMaps[boardMask],
                 oppMask, enPassantPawn, whiteToMove, bitMaps[start + 1],
                 positionProps[checkerMask] | positionProps[blockerMask]);
-        moves.addAll(MoveGenerator.generateInCheckMoves(boardMask, oppMask, bitMaps[2 + start], 2,
+        moves.addAll(MoveGenerator.generateInCheckMoves(boardMaps[boardMask], oppMask, bitMaps[2 + start], 2,
                 positionProps[checkerMask] | positionProps[blockerMask]));
-        moves.addAll(MoveGenerator.generateInCheckMoves(boardMask, oppMask, bitMaps[3 + start], 3,
+        moves.addAll(MoveGenerator.generateInCheckMoves(boardMaps[boardMask], oppMask, bitMaps[3 + start], 3,
                 positionProps[checkerMask] | positionProps[blockerMask]));
-        moves.addAll(MoveGenerator.generateInCheckMoves(boardMask, oppMask, bitMaps[4 + start], 4,
+        moves.addAll(MoveGenerator.generateInCheckMoves(boardMaps[boardMask], oppMask, bitMaps[4 + start], 4,
                 positionProps[checkerMask] | positionProps[blockerMask]));
-        moves.addAll(MoveGenerator.generateInCheckMoves(boardMask, oppMask, bitMaps[5 + start], 5,
+        moves.addAll(MoveGenerator.generateInCheckMoves(boardMaps[boardMask], oppMask, bitMaps[5 + start], 5,
                 positionProps[checkerMask] | positionProps[blockerMask]));
         //Remove all pinned pieces illegal moves
-        long pinnedPieces = (boardMask & ~oppMask) & positionProps[pinnedMask];
+        long pinnedPieces = (boardMaps[boardMask] & ~oppMask) & positionProps[pinnedMask];
         if(pinnedPieces != 0) {
             List<Character> legal = new ArrayList<>();
             int king = whiteToMove ? Long.numberOfTrailingZeros(bitMaps[0]) : Long.numberOfTrailingZeros(bitMaps[6]);
@@ -786,30 +747,30 @@ public class Board {
     private List<Character> getAllMoves(boolean inCheck){
         if(inCheck)
             return getAllMovesInCheck();
-        long oppMask = whiteToMove ? blackMask : whiteMask;
+        long oppMask = whiteToMove ? boardMaps[blackMask] : boardMaps[whiteMask];
         int start = whiteToMove ? 0 : 6;
         char castling = whiteToMove ? castlingRights : (char) (castlingRights >> 2);
         //Legal king moves
-        List<Character> moves = new ArrayList<>(MoveGenerator.kingMoves(boardMask,
+        List<Character> moves = new ArrayList<>(MoveGenerator.kingMoves(boardMaps[boardMask],
                 (whiteToMove ? positionProps[blackAttack] : positionProps[whiteAttack]), oppMask,
                 castling, Long.numberOfTrailingZeros(bitMaps[start])));
         //Pseudo legal pawn moves
-        moves.addAll(MoveGenerator.generatePawnMoves(boardMask, oppMask, enPassantPawn & 0xFF,
+        moves.addAll(MoveGenerator.generatePawnMoves(boardMaps[boardMask], oppMask, enPassantPawn & 0xFF,
                 whiteToMove, bitMaps[start + 1]));
         //Pseudo legal knight moves
-        moves.addAll(MoveGenerator.generateKnightMoves(bitMaps[2 + start], boardMask, oppMask));
+        moves.addAll(MoveGenerator.generateKnightMoves(bitMaps[2 + start], boardMaps[boardMask], oppMask));
         //Pseudo legal rook moves
-        moves.addAll(MoveGenerator.generateSlidingMoves(boardMask, oppMask,
+        moves.addAll(MoveGenerator.generateSlidingMoves(boardMaps[boardMask], oppMask,
                 bitMaps[start + 3], 3));
         //Pseudo legal bishop moves
-        moves.addAll(MoveGenerator.generateSlidingMoves(boardMask, oppMask,
+        moves.addAll(MoveGenerator.generateSlidingMoves(boardMaps[boardMask], oppMask,
                 bitMaps[start + 4], 4));
         //Pseudo legal queen moves
-        moves.addAll(MoveGenerator.generateSlidingMoves(boardMask, oppMask,
+        moves.addAll(MoveGenerator.generateSlidingMoves(boardMaps[boardMask], oppMask,
                 bitMaps[start + 5], 5));
 
         //Remove all pinned pieces illegal moves
-        long pin = positionProps[pinnedMask];
+        long pin = positionProps[pinnedMask] & (boardMaps[boardMask] & ~oppMask);
         if(pin != 0) {
             List<Character> legal = new ArrayList<>();
             int king = whiteToMove ? Long.numberOfTrailingZeros(bitMaps[0]) : Long.numberOfTrailingZeros(bitMaps[6]);
@@ -882,9 +843,9 @@ public class Board {
 
     public long search(int depth){
         long numPositions = 0;
-        List<Character> moves = getAllMoves(numCheckers > 0);
         if(depth == 0)
             return 1;
+        List<Character> moves = getAllMoves(numCheckers > 0);
         if(depth == 1)
             return moves.size();
         for(char move : moves){

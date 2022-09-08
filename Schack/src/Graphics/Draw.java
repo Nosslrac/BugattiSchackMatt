@@ -63,7 +63,7 @@ public class Draw extends JPanel implements ActionListener, MouseListener, Mouse
         g2D.setRenderingHints(rh);
         drawBoard(g2D);
         drawAttack(g2D);
-        //drawPinned(g2D);
+        drawPinned(g2D);
         drawPieces(g2D);
         drawPiece(g2D);
     }
@@ -179,7 +179,7 @@ public class Draw extends JPanel implements ActionListener, MouseListener, Mouse
     }
 
     public void perft(){
-        board.perft(4);
+        board.perft(5);
     }
 
     public void setPromotion(int key){
@@ -218,7 +218,7 @@ public class Draw extends JPanel implements ActionListener, MouseListener, Mouse
         if(held_piece > -1) {
             if(board.placePiece(origin, (mX - 20) / sq_size + ((mY - 20) / sq_size) * 8)) {
                 playSound(board.getMoveSound());
-                board.engineMove();
+                //board.engineMove();
             }
         }
         held_piece = -1;
